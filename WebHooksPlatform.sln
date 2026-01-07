@@ -25,6 +25,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Webhooks.IntegrationTest", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebHooks.IntegrationTests", "test\Webhooks.IntegrationTest\WebHooks.IntegrationTests.csproj", "{32747CD9-EF04-4D14-9829-A8AA08DC0703}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Domain", "Domain", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+	ProjectSection(SolutionItems) = preProject
+		WebHookDeliveryTests.cs = WebHookDeliveryTests.cs
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -121,5 +126,9 @@ Global
 		{D3887795-9881-4547-AD45-29B9F7278D2F} = {4999BB73-D257-46D6-E8CB-80836288D8FA}
 		{213D9C84-F95B-DB9F-C780-1DB23A92D8EE} = {0C88DD14-F956-CE84-757C-A364CCF449FC}
 		{32747CD9-EF04-4D14-9829-A8AA08DC0703} = {213D9C84-F95B-DB9F-C780-1DB23A92D8EE}
+		{02EA681E-C7D8-13C7-8484-4AC65E1B71E8} = {4999BB73-D257-46D6-E8CB-80836288D8FA}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A560B815-0B5C-4D7A-B606-C584B8A54DD7}
 	EndGlobalSection
 EndGlobal
