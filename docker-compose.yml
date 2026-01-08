@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: webhooks-postgres
+    environment:
+      POSTGRES_USER: webhooks
+      POSTGRES_PASSWORD: webhooks
+      POSTGRES_DB: webhooks_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - webhooks_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U webhooks -d webhooks_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: webhooks-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  webhooks_pgdata:
