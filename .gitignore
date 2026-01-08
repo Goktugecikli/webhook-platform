@@ -18,3 +18,12 @@ Thumbs.db
 
 # Logs
 *.log
+
+# .NET build artifacts
+bin/
+obj/
+
+# Test results
+TestResults/
+**/TestResults/
+
