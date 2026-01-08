@@ -8,23 +8,23 @@
     "net9.0": []
   },
   "packageFolders": {
-    "C:\\Users\\goktug.gecikli\\.nuget\\packages\\": {},
+    "C:\\Users\\ggeci\\.nuget\\packages\\": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\goktug.gecikli\\OneDrive - Sanko Holding\\Masaüstü\\Projects\\webhooks-platform\\src\\WebHooks.Domain\\WebHooks.Domain.csproj",
+      "projectUniqueName": "C:\\Users\\ggeci\\projects\\webhook-platform\\webhook-platform\\src\\WebHooks.Domain\\WebHooks.Domain.csproj",
       "projectName": "WebHooks.Domain",
-      "projectPath": "C:\\Users\\goktug.gecikli\\OneDrive - Sanko Holding\\Masaüstü\\Projects\\webhooks-platform\\src\\WebHooks.Domain\\WebHooks.Domain.csproj",
-      "packagesPath": "C:\\Users\\goktug.gecikli\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\goktug.gecikli\\OneDrive - Sanko Holding\\Masaüstü\\Projects\\webhooks-platform\\src\\WebHooks.Domain\\obj\\",
+      "projectPath": "C:\\Users\\ggeci\\projects\\webhook-platform\\webhook-platform\\src\\WebHooks.Domain\\WebHooks.Domain.csproj",
+      "packagesPath": "C:\\Users\\ggeci\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\ggeci\\projects\\webhook-platform\\webhook-platform\\src\\WebHooks.Domain\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
       ],
       "configFilePaths": [
-        "C:\\Users\\goktug.gecikli\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\ggeci\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
@@ -49,9 +49,9 @@
       "restoreAuditProperties": {
         "enableAudit": "true",
         "auditLevel": "low",
-        "auditMode": "direct"
+        "auditMode": "all"
       },
-      "SdkAnalysisLevel": "9.0.300"
+      "SdkAnalysisLevel": "9.0.100"
     },
     "frameworks": {
       "net9.0": {
@@ -72,7 +72,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.308/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\program files\\dotnet\\sdk\\9.0.100/PortableRuntimeIdentifierGraph.json"
       }
     }
   }
