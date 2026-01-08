@@ -1,25 +1,23 @@
-# .NET
-bin/
-obj/
+# === OS / Editor ===
+.DS_Store
+Thumbs.db
+
+# VS / Rider / IDE
+.vs/
+.idea/
 *.user
 *.suo
 *.userosscache
 *.sln.docstates
+*.csproj.user
 
-# Visual Studio
-.vs/
+# === .NET build artifacts ===
+bin/
+obj/
 
-# Rider
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-
-# Test results / coverage outputs
+# === Test results / coverage outputs ===
 TestResults/
 **/TestResults/
 
+# === Logs ===
+*.log
