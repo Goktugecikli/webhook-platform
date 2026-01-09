@@ -3,6 +3,15 @@ using WebHooks.Infrastructre.Persistence;
 
 
 var builder = WebApplication.CreateBuilder(args);
+AppDomain.CurrentDomain.FirstChanceException += (s, e) =>
+{
+    if (e.Exception is System.Reflection.ReflectionTypeLoadException rtle)
+    {
+        Console.WriteLine("ReflectionTypeLoadException:");
+        foreach (var le in rtle.LoaderExceptions)
+            Console.WriteLine(" - " + le.Message);
+    }
+};
 
 AppDomain.CurrentDomain.FirstChanceException += (s, e) =>
 {
