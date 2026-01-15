@@ -13,5 +13,6 @@ public enum WebhookDeliveryStatus
     Processing = 2,
     Succeeded = 3,
     Failed = 4,
-    Dead = 5
+    Dead = 5,
+    Pending = 6
 }
