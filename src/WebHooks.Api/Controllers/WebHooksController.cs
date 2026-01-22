@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using WebHooks.Api.Controllers.Webhooks;
 using WebHooks.Domain;
 using WebHooks.Infrastructre.Persistence;
 
@@ -17,10 +18,16 @@ public class WebhooksController : ControllerBase
     }
 
     [HttpPost("{provider}")]
-    public async Task<IActionResult> Receive(string provider, [FromBody] CreateWebhookRequest req, CancellationToken ct)
+    public async Task<IActionResult> Receive(string provider, [FromBody] ReceiveWebhookRequest req, CancellationToken ct)
     {
+        provider = provider?.Trim() ?? "";
+        var tenantId = req.TenantId?.Trim();
+
         if (string.IsNullOrWhiteSpace(provider))
             return BadRequest("provider is required");
+
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return BadRequest("tenantId is required");
 
         if (string.IsNullOrWhiteSpace(req.EventType))
             return BadRequest("eventType is required");
@@ -28,46 +35,59 @@ public class WebhooksController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.Payload))
             return BadRequest("payload is required");
 
-        // Idempotency key: header varsa onu tercih edelim (gerçek sistemler böyle)
+        // Idempotency key (header öncelikli)
         var headerKey = Request.Headers.TryGetValue("Idempotency-Key", out var h) ? h.ToString() : null;
         var idempotencyKey = !string.IsNullOrWhiteSpace(headerKey)
             ? headerKey!
-            : (string.IsNullOrWhiteSpace(req.IdempotencyKey) ? Guid.NewGuid().ToString("N") : req.IdempotencyKey!);
+            : (string.IsNullOrWhiteSpace(req.IdempotencyKey) ? Guid.NewGuid().ToString("N") : req.IdempotencyKey!.Trim());
 
-        // Duplicate kontrol (DB unique index zaten var, ama 409 için ön kontrol yapıyoruz)
-        var exists = await _db.WebhookDeliveries
+        // tenant+provider için aktif subscription’ları çek
+        var subs = await _db.WebhookSubscriptions
             .AsNoTracking()
-            .AnyAsync(x => x.Provider == provider && x.IdempotencyKey == idempotencyKey, ct);
+            .Where(x => x.IsActive && x.TenantId == tenantId && x.Provider == provider)
+            .ToListAsync(ct);
 
-        if (exists)
-            return Conflict(new { message = "Duplicate webhook (idempotency key already used)", provider, idempotencyKey });
+        var matched = subs.Where(s => Matches(req.EventType!, s.EventPrefix)).ToList();
 
-        var delivery = WebhookDelivery.Create(
-            provider: provider,
-            eventType: req.EventType,
-            payload: req.Payload,
-            idempotencyKey: idempotencyKey
-        );
+        if (matched.Count == 0)
+            return Ok(new { created = 0, deliveryIds = Array.Empty<Guid>() });
 
-        _db.WebhookDeliveries.Add(delivery);
-
-        try
+        var deliveries = matched.Select(s =>
         {
-            await _db.SaveChangesAsync(ct);
-        }
-        catch (DbUpdateException)
-        {
-            // Race condition: iki istek aynı anda geldiyse unique index patlayabilir → yine 409
-            return Conflict(new { message = "Duplicate webhook (race)", provider, idempotencyKey });
-        }
+            var d = WebhookDelivery.Create(
+                tenantId!,
+                provider,
+                req.EventType!,
+                req.Payload!,
+                idempotencyKey,
+                s.TargetUrl
+            );
+            d.MarkPublished();
+            return d;
+        }).ToList();
 
-        return Created($"/webhooks/{provider}/{delivery.Id}", new
+        _db.WebhookDeliveries.AddRange(deliveries);
+
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new
         {
-            id = delivery.Id,
-            provider,
-            idempotencyKey,
-            status = delivery.Status.ToString(),
-            createdAt = delivery.CreatedAt
+            created = deliveries.Count,
+            deliveryIds = deliveries.Select(x => x.Id).ToArray()
         });
     }
+
+    private static bool Matches(string eventType, string prefix)
+    {
+        if (string.IsNullOrWhiteSpace(prefix)) return false;
+
+        prefix = prefix.Trim();
+        if (prefix == "*") return true;
+
+        if (prefix.EndsWith(".*", StringComparison.Ordinal))
+            prefix = prefix.Substring(0, prefix.Length - 1);
+
+        return eventType.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+    }
+
 }

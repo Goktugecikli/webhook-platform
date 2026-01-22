@@ -11,6 +11,8 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
+    public DbSet<WebhookSubscription> WebhookSubscriptions => Set<WebhookSubscription>();
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
