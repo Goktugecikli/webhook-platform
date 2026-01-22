@@ -16,22 +16,24 @@ public class WebhookDispatcherWorker : BackgroundService
         _scopeFactory = scopeFactory;
     }
 
-    private static TimeSpan GetRetryDelay(int retryCount)
+    private static TimeSpan GetRetryDelay(int retryIndex)
     {
-        return retryCount switch
+        return retryIndex switch
         {
-            0 => TimeSpan.FromSeconds(10),   // 1. retry
-            1 => TimeSpan.FromSeconds(30),   // 2. retry
-            2 => TimeSpan.FromMinutes(2),    // 3. retry
-            3 => TimeSpan.FromMinutes(10),   // 4. retry
-            _ => TimeSpan.FromMinutes(30)    // sonrası
+            0 => TimeSpan.FromSeconds(10),
+            1 => TimeSpan.FromSeconds(30),
+            2 => TimeSpan.FromMinutes(2),
+            3 => TimeSpan.FromMinutes(10),
+            _ => TimeSpan.FromMinutes(30)
         };
     }
-
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Webhook Worker started.");
+
+        const int BatchSize = 10;
+        const int MaxRetries = 5;
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -42,73 +44,71 @@ public class WebhookDispatcherWorker : BackgroundService
 
                 var now = DateTime.UtcNow;
 
-                // ✅ 1) Published olanları al
-                // ✅ 2) Failed olup retry zamanı gelmiş olanları da al
+                // Published olanlar + retry zamanı gelmiş Failed olanlar
                 var candidates = await db.WebhookDeliveries
                     .Where(x =>
                         x.Status == WebhookDeliveryStatus.Published ||
                         (x.Status == WebhookDeliveryStatus.Failed && x.NextRetryAt != null && x.NextRetryAt <= now)
                     )
                     .OrderBy(x => x.CreatedAt)
-                    .Take(10)
+                    .Take(BatchSize)
                     .ToListAsync(stoppingToken);
 
                 if (candidates.Count == 0)
                 {
-                    _logger.LogInformation("No deliveries to dispatch.");
+                    _logger.LogDebug("No deliveries to dispatch.");
                     await Task.Delay(TimeSpan.FromSeconds(3), stoppingToken);
                     continue;
                 }
 
                 _logger.LogInformation("Found {Count} deliveries to dispatch.", candidates.Count);
 
+                // Önce hepsini Processing'e al (attempt++ burada olacak)
                 foreach (var d in candidates)
-                {
-                    // Processing
                     d.MarkProcessing();
-                }
 
-                // tek seferde kaydet (performans)
                 await db.SaveChangesAsync(stoppingToken);
 
+                // Sonra tek tek dispatch et
                 foreach (var d in candidates)
                 {
                     try
                     {
-                        // Şimdilik gerçek HTTP yok -> başarılı varsay
                         _logger.LogInformation("Dispatching delivery {Id} ({Provider}/{EventType})",
                             d.Id, d.Provider, d.EventType);
 
-                        d.MarkSucceeded();
+                        // TODO: Gerçek HTTP dispatch burada olacak
+                        // Şimdilik "başarılı" simülasyonu
+                        var fakeStatusCode = 200;
+                        var fakeResponse = "OK";
+
+                        d.MarkSucceeded(fakeStatusCode, fakeResponse);
                     }
                     catch (Exception ex)
                     {
-                        var retryDelay = GetRetryDelay(d.RetryCount);
+                        // Bu failure ile birlikte kaçıncı retry olacak?
+                        var nextRetryCount = d.RetryCount + 1;
 
-                        // max retry sayısı (örnek: 5)
-                        if (d.RetryCount >= 5)
+                        // Max retry aşıldıysa Dead
+                        if (nextRetryCount > MaxRetries)
                         {
                             _logger.LogWarning(
-                                "Delivery {Id} moved to DEAD after {RetryCount} retries",
-                                d.Id,
-                                d.RetryCount
-                            );
+                                "Delivery {Id} moved to DEAD after {RetryCount} retries. Error: {Error}",
+                                d.Id, d.RetryCount, ex.Message);
 
                             d.MarkDead(ex.Message);
+                            continue;
                         }
-                        else
-                        {
-                            _logger.LogWarning(
-                                "Delivery {Id} failed. Retry #{RetryCount} scheduled after {Delay}",
-                                d.Id,
-                                d.RetryCount + 1,
-                                retryDelay
-                            );
 
-                            d.MarkFailed(ex.Message, retryDelay);
-                        }
+                        // retryIndex 0 tabanlı (0 => ilk retry)
+                        var retryDelay = GetRetryDelay(d.RetryCount);
+
+                        _logger.LogWarning(
+                            "Delivery {Id} failed. Scheduling Retry #{NextRetry} after {Delay}. Error: {Error}",
+                            d.Id, nextRetryCount, retryDelay, ex.Message);
+
+                        d.MarkFailed(ex.Message, retryDelay);
                     }
-
                 }
 
                 await db.SaveChangesAsync(stoppingToken);

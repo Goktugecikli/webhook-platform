@@ -22,6 +22,9 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebHooks.UnitTest", "test\Webhooks.UnitTests\WebHooks.UnitTest.csproj", "{D3887795-9881-4547-AD45-29B9F7278D2F}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Webhooks.IntegrationTest", "Webhooks.IntegrationTest", "{213D9C84-F95B-DB9F-C780-1DB23A92D8EE}"
+	ProjectSection(SolutionItems) = preProject
+		src\WebHooks.Infrastructre\Persistence\AppDbContextFactory.cs = src\WebHooks.Infrastructre\Persistence\AppDbContextFactory.cs
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebHooks.IntegrationTests", "test\Webhooks.IntegrationTest\WebHooks.IntegrationTests.csproj", "{32747CD9-EF04-4D14-9829-A8AA08DC0703}"
 EndProject

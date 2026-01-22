@@ -19,8 +19,12 @@ builder.Services.AddControllers();
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
 
+builder.Services.AddSwaggerGen(c =>
+{
+    c.CustomSchemaIds(t => t.FullName!.Replace("+", "."));
+});
 
-builder.Services.AddSwaggerGen();
+
 
 var cs = builder.Configuration.GetConnectionString("Default")
          ?? throw new InvalidOperationException("Connection string 'Default' not found.");

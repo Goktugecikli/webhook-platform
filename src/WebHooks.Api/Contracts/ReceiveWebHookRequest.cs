@@ -1,7 +1,9 @@
-﻿namespace Webooks.Api.Controllers.Webhooks;
+﻿namespace WebHooks.Api.Controllers.Webhooks;
 
-public sealed record CreateWebhookRequest(
-    string EventType,
-    string Payload,
-    string? IdempotencyKey
-);
+public sealed class ReceiveWebhookRequest
+{
+    public string TenantId { get; set; } = null!;
+    public string EventType { get; set; } = null!;
+    public string Payload { get; set; } = null!;
+    public string? IdempotencyKey { get; set; }
+}
