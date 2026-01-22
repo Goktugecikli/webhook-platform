@@ -16,6 +16,8 @@ AppDomain.CurrentDomain.FirstChanceException += (s, e) =>
 // Controllers
 builder.Services.AddControllers();
 
+builder.Services.AddHttpClient("webhooks");
+
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
 
