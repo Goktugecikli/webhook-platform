@@ -112,11 +112,22 @@ public class WebhookDelivery
         LastError = error;
         Status = WebhookDeliveryStatus.Dead;
 
+        NextRetryAt = null;
+
         LastStatusCode = statusCode;
         LastResponseSnippet = Truncate(responseSnippet);
 
         UpdatedAt = DateTime.UtcNow;
     }
+
+    public void MarkQueuedForManualRetry()
+    {
+        Status = WebhookDeliveryStatus.Published;
+        NextRetryAt = null;
+        LastError = null;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
 
     private static string? Truncate(string? s, int maxLen = 1024)
     {

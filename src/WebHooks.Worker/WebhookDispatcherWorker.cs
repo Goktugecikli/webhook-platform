@@ -2,18 +2,25 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using System.Text;
 using WebHooks.Domain;
 using WebHooks.Infrastructre.Persistence;
+using WebHooks.Infrastructre.Security;
 
 public class WebhookDispatcherWorker : BackgroundService
 {
     private readonly ILogger<WebhookDispatcherWorker> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IHttpClientFactory _httpClientFactory;
 
-    public WebhookDispatcherWorker(ILogger<WebhookDispatcherWorker> logger, IServiceScopeFactory scopeFactory)
+    public WebhookDispatcherWorker(
+        ILogger<WebhookDispatcherWorker> logger,
+        IServiceScopeFactory scopeFactory,
+        IHttpClientFactory httpClientFactory)
     {
         _logger = logger;
         _scopeFactory = scopeFactory;
+        _httpClientFactory = httpClientFactory;
     }
 
     private static TimeSpan GetRetryDelay(int retryIndex)
@@ -30,8 +37,6 @@ public class WebhookDispatcherWorker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Webhook Worker started.");
-
         const int BatchSize = 10;
         const int MaxRetries = 5;
 
@@ -44,78 +49,111 @@ public class WebhookDispatcherWorker : BackgroundService
 
                 var now = DateTime.UtcNow;
 
-                // Published olanlar + retry zamanı gelmiş Failed olanlar
                 var candidates = await db.WebhookDeliveries
                     .Where(x =>
                         x.Status == WebhookDeliveryStatus.Published ||
-                        (x.Status == WebhookDeliveryStatus.Failed && x.NextRetryAt != null && x.NextRetryAt <= now)
-                    )
+                        (x.Status == WebhookDeliveryStatus.Failed &&
+                         x.NextRetryAt != null &&
+                         x.NextRetryAt <= now))
                     .OrderBy(x => x.CreatedAt)
                     .Take(BatchSize)
                     .ToListAsync(stoppingToken);
 
                 if (candidates.Count == 0)
                 {
-                    _logger.LogDebug("No deliveries to dispatch.");
                     await Task.Delay(TimeSpan.FromSeconds(3), stoppingToken);
                     continue;
                 }
 
-                _logger.LogInformation("Found {Count} deliveries to dispatch.", candidates.Count);
-
-                // Önce hepsini Processing'e al (attempt++ burada olacak)
                 foreach (var d in candidates)
                     d.MarkProcessing();
 
                 await db.SaveChangesAsync(stoppingToken);
 
-                // Sonra tek tek dispatch et
                 foreach (var d in candidates)
                 {
                     try
                     {
-                        _logger.LogInformation("Dispatching delivery {Id} ({Provider}/{EventType})",
-                            d.Id, d.Provider, d.EventType);
+                        var subscription = await db.WebhookSubscriptions
+                            .Where(s => s.IsActive && s.Provider == d.Provider)
+                            .AsNoTracking()
+                            .ToListAsync(stoppingToken);
 
-                        // TODO: Gerçek HTTP dispatch burada olacak
-                        // Şimdilik "başarılı" simülasyonu
-                        var fakeStatusCode = 200;
-                        var fakeResponse = "OK";
+                        var matched = subscription
+                            .Where(s =>
+                                s.EventPrefix == "*" ||
+                                d.EventType.StartsWith(s.EventPrefix, StringComparison.OrdinalIgnoreCase))
+                            .OrderByDescending(s => s.EventPrefix == "*" ? 0 : s.EventPrefix.Length)
+                            .FirstOrDefault();
 
-                        d.MarkSucceeded(fakeStatusCode, fakeResponse);
-                    }
-                    catch (Exception ex)
-                    {
-                        // Bu failure ile birlikte kaçıncı retry olacak?
-                        var nextRetryCount = d.RetryCount + 1;
-
-                        // Max retry aşıldıysa Dead
-                        if (nextRetryCount > MaxRetries)
+                        if (matched is null)
                         {
-                            _logger.LogWarning(
-                                "Delivery {Id} moved to DEAD after {RetryCount} retries. Error: {Error}",
-                                d.Id, d.RetryCount, ex.Message);
-
-                            d.MarkDead(ex.Message);
+                            d.MarkDead("No active subscription found");
                             continue;
                         }
 
-                        // retryIndex 0 tabanlı (0 => ilk retry)
-                        var retryDelay = GetRetryDelay(d.RetryCount);
+                        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+                        var signedPayload = $"{timestamp}.{d.Payload}";
+                        var sigHex = WebhookSignature.ComputeSha256Hex(matched.Secret, signedPayload);
 
-                        _logger.LogWarning(
-                            "Delivery {Id} failed. Scheduling Retry #{NextRetry} after {Delay}. Error: {Error}",
-                            d.Id, nextRetryCount, retryDelay, ex.Message);
+                        var http = _httpClientFactory.CreateClient("webhooks");
 
-                        d.MarkFailed(ex.Message, retryDelay);
+                        using var req = new HttpRequestMessage(HttpMethod.Post, matched.TargetUrl);
+                        req.Content = new StringContent(d.Payload, Encoding.UTF8, "application/json");
+
+                        req.Headers.TryAddWithoutValidation("X-Webhook-Id", d.Id.ToString());
+                        req.Headers.TryAddWithoutValidation("X-Webhook-Timestamp", timestamp);
+                        req.Headers.TryAddWithoutValidation("X-Webhook-Signature", $"sha256={sigHex}");
+                        req.Headers.TryAddWithoutValidation("X-Webhook-Event", d.EventType);
+                        req.Headers.TryAddWithoutValidation("X-Webhook-Provider", d.Provider);
+
+                        using var res = await http.SendAsync(req, stoppingToken);
+                        var resBody = await res.Content.ReadAsStringAsync(stoppingToken);
+
+                        if ((int)res.StatusCode >= 200 && (int)res.StatusCode <= 299)
+                        {
+                            d.MarkSucceeded((int)res.StatusCode, resBody);
+                        }
+                        else
+                        {
+                            throw new WebhookDispatchHttpException((int)res.StatusCode, resBody);
+                        }
+
+
                     }
+                    catch (Exception ex)
+                    {
+                        var httpEx = ex as WebhookDispatchHttpException;
+
+                        var nextRetryCount = d.RetryCount + 1;
+
+                        if (nextRetryCount > MaxRetries)
+                        {
+                            d.MarkDead(
+                                ex.Message,
+                                httpEx?.StatusCode,
+                                httpEx?.ResponseBody
+                            );
+                            continue;
+                        }
+
+                        var retryDelay = GetRetryDelay(nextRetryCount - 1);
+
+                        d.MarkFailed(
+                            ex.Message,
+                            retryDelay,
+                            httpEx?.StatusCode,
+                            httpEx?.ResponseBody
+                        );
+                    }
+
                 }
 
                 await db.SaveChangesAsync(stoppingToken);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Dispatch cycle failed.");
+                _logger.LogError(ex, "Dispatch cycle failed");
             }
 
             await Task.Delay(TimeSpan.FromSeconds(3), stoppingToken);
