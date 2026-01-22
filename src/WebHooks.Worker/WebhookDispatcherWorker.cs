@@ -116,23 +116,37 @@ public class WebhookDispatcherWorker : BackgroundService
                         }
                         else
                         {
-                            d.MarkFailed($"Remote returned {(int)res.StatusCode}", GetRetryDelay(nextRetryCount - 1), (int)res.StatusCode, resBody);
+                            throw new WebhookDispatchHttpException((int)res.StatusCode, resBody);
                         }
+
 
                     }
                     catch (Exception ex)
                     {
+                        var httpEx = ex as WebhookDispatchHttpException;
+
                         var nextRetryCount = d.RetryCount + 1;
 
                         if (nextRetryCount > MaxRetries)
                         {
-                            d.MarkDead(ex.Message);
+                            d.MarkDead(
+                                ex.Message,
+                                httpEx?.StatusCode,
+                                httpEx?.ResponseBody
+                            );
                             continue;
                         }
 
                         var retryDelay = GetRetryDelay(nextRetryCount - 1);
-                        d.MarkFailed(ex.Message, retryDelay);
+
+                        d.MarkFailed(
+                            ex.Message,
+                            retryDelay,
+                            httpEx?.StatusCode,
+                            httpEx?.ResponseBody
+                        );
                     }
+
                 }
 
                 await db.SaveChangesAsync(stoppingToken);

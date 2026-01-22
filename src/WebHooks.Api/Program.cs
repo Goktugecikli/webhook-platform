@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using WebHooks.Api.Security;
 using WebHooks.Infrastructre.Persistence;
 
 
@@ -17,13 +18,15 @@ AppDomain.CurrentDomain.FirstChanceException += (s, e) =>
 builder.Services.AddControllers();
 
 builder.Services.AddHttpClient("webhooks");
+builder.Services.AddAdminSecurity(builder.Configuration);
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddSwaggerGen(c =>
 {
-    c.CustomSchemaIds(t => t.FullName!.Replace("+", "."));
+    c.CustomSchemaIds(t => (t.FullName ?? t.Name).Replace("+", "."));
+
 });
 
 
@@ -38,6 +41,7 @@ builder.Services.AddDbContext<AppDbContext>(o => o.UseNpgsql(cs));
 builder.Services.AddProblemDetails();
 
 var app = builder.Build();
+app.UseAdminSecurity();
 
 
 // Global exception handling
