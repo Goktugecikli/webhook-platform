@@ -6,6 +6,8 @@ await Host.CreateDefaultBuilder(args)
     .ConfigureServices((context, services) =>
     {
         services.AddInfrastructure(context.Configuration);
-        services.AddHostedService<WebhookDispatcherWorker>();
+        services.AddHttpClient("webhooks");
+        services.AddScoped<WebhookDispatcher>();
+
     })
     .RunConsoleAsync();

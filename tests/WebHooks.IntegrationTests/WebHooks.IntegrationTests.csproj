@@ -9,9 +9,9 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.2" />
-    <PackageReference Include="FluentAssertions" Version="8.8.0" />
+    <PackageReference Include="DotNet.Testcontainers" Version="1.6.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
-    <PackageReference Include="Microsoft.OpenApi" Version="1.6.22" />
+    <PackageReference Include="Testcontainers.PostgreSql" Version="4.10.0" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
   </ItemGroup>
@@ -21,7 +21,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\WebHooks.Api\Webooks.Api.csproj" />
+    <ProjectReference Include="..\..\src\WebHooks.Infrastructre\WebHooks.Infrastructre.csproj" />
+    <ProjectReference Include="..\..\src\WebHooks.Domain\WebHooks.Domain.csproj" />
+    <ProjectReference Include="..\..\src\WebHooks.Worker\WebHooks.Worker.csproj" />
   </ItemGroup>
 
 </Project>

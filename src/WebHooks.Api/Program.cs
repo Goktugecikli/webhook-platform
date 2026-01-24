@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using WebHooks.Api.Security;
 using WebHooks.Infrastructre.Persistence;
+using WebHooks.Api.Swagger;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -26,6 +27,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.CustomSchemaIds(t => (t.FullName ?? t.Name).Replace("+", "."));
+    c.OperationFilter<WebhookSignatureHeadersOperationFilter>();
 
 });
 
