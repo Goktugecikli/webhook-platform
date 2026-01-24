@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using WebHooks.Infrastructre.Persistence;
@@ -11,9 +12,11 @@ using WebHooks.Infrastructre.Persistence;
 namespace WebHooks.Infrastructre.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260124231610_AddDeliveryIdempotencyUniqueIndex")]
+    partial class AddDeliveryIdempotencyUniqueIndex
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -52,8 +55,7 @@ namespace WebHooks.Infrastructre.Persistence.Migrations
                         .HasColumnType("character varying(2000)");
 
                     b.Property<string>("LastResponseSnippet")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)");
+                        .HasColumnType("text");
 
                     b.Property<int?>("LastStatusCode")
                         .HasColumnType("integer");
@@ -78,22 +80,18 @@ namespace WebHooks.Infrastructre.Persistence.Migrations
 
                     b.Property<string>("TargetUrl")
                         .IsRequired()
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)");
+                        .HasColumnType("text");
 
                     b.Property<string>("TenantId")
                         .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Status", "NextRetryAt");
-
-                    b.HasIndex("TenantId", "Provider", "IdempotencyKey", "TargetUrl")
+                    b.HasIndex("Provider", "IdempotencyKey")
                         .IsUnique();
 
                     b.ToTable("webhook_deliveries", (string)null);

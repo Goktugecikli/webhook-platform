@@ -1,10 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using WebHooks.Api.Controllers.Webhooks;
 using WebHooks.Domain;
 using WebHooks.Infrastructre.Persistence;
 
-namespace Webooks.Api.Controllers.Webhooks;
+namespace WebHooks.Api.Controllers.Webhooks;
 
 [ApiController]
 [Route("webhooks")]
@@ -66,15 +65,36 @@ public class WebhooksController : ControllerBase
             return d;
         }).ToList();
 
-        _db.WebhookDeliveries.AddRange(deliveries);
+        try
+        {
+            _db.WebhookDeliveries.AddRange(deliveries);
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (Npgsql.PostgresException ex) when (ex.SqlState == "23505")
+        {
+            // Duplicate -> mevcut delivery'leri dön
+            var targetUrls = matched.Select(m => m.TargetUrl).ToList();
 
-        await _db.SaveChangesAsync(ct);
+            var existingIds = await _db.WebhookDeliveries
+                .AsNoTracking()
+                .Where(x =>
+                    x.TenantId == tenantId &&
+                    x.Provider == provider &&
+                    x.IdempotencyKey == idempotencyKey &&
+                    targetUrls.Contains(x.TargetUrl)
+                )
+                .Select(x => x.Id)
+                .ToListAsync(ct);
+
+            return Ok(new { created = 0, deliveryIds = existingIds.ToArray(), duplicate = true });
+        }
 
         return Ok(new
         {
             created = deliveries.Count,
             deliveryIds = deliveries.Select(x => x.Id).ToArray()
         });
+
     }
 
     private static bool Matches(string eventType, string prefix)
