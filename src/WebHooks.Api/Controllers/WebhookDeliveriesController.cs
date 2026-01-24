@@ -2,7 +2,6 @@
 using WebHooks.Api.Controllers.Deliveries;
 using WebHooks.Domain;
 using WebHooks.Infrastructre.Persistence;
-using Webooks.Api.Controllers.Webhooks;
 
 namespace WebHooks.Api.Controllers;
 
